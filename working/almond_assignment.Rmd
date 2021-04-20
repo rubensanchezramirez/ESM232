@@ -8,6 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(janitor)
 
 # Read in data 
 clim <- read_table2(here::here("assignments","data","clim.txt")) %>% 

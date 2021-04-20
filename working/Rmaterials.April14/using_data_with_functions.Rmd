@@ -133,6 +133,7 @@ colnames(res)=Keff
 
 # rearrange to plot
 resg=as.data.frame(res) %>% pivot_longer(everything(),names_to="Keff", values_to="Power")
+ggplot(resg, aes(Keff, Power))+geom_point()
 ggplot(resg, aes(Keff, Power, fill=Keff))+geom_boxplot() + labs(y="Power (W/s)", "Efficiency")
 
 

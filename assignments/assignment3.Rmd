@@ -33,16 +33,6 @@ clim_data <- read_table2(here::here("assignments","data","clim.txt")) %>%
 ```{r}
 
 # call the function
-source("./R/almond_yield.2.R")
-
-# run the function using the given climate data
-yield_data <- almond_yield.2(clim_data)
-
-```
-
-```{r}
-
-# call the function
 source("./R/almond_yield.R")
 
 # run the function using the given climate data
@@ -53,25 +43,145 @@ yield_data <- almond_yield(clim_data)
 
 ```{r}
 
-t.coeff2 <- rnorm(n = 500, mean = -0.0043, sd = .001)
+# make a distribution of the p.coeff2 parameter for uncertainty 
+p.coeff2 <- rnorm(n = 500, mean = 0.0043, sd = .001)
 
-res = t.coeff2 %>% map_dfr(~almond_yield( climate = clim_data, t.coeff2 = .x) )
+# use map_dfr to out put a data frame taking into account all the variability 
+yield_data = p.coeff2 %>% map_dfr(~almond_yield( climate = clim_data, p.coeff2 = .x) )
 
-plot(res)
+# plot the results using a box plot for uncertainty per year
+plot.1 <- yield_data %>% 
+  ggplot(aes(x = year, y = yield, group = year)) +
+  geom_boxplot(aes(fill = year)) +
+  theme_classic()+
+  #scale_x_continuous(limits=c(1989, 2010)) +
+  scale_y_continuous(limits=c(-1, 2000)) +
+  labs(x = "Harvest Years",
+       y = "Almond Yield Anomaly (ton/acre)") +
+  theme(text = element_text(family = "serif"),
+        axis.title.x = element_text(size=12, face="bold"),
+        axis.title.y = element_text(size=12, face="bold"),
+        axis.text.x = element_text(size=8),
+        axis.text.y = element_text(size=8),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size=8, face="bold"),
+        legend.position = "none")
+# Save plot
+ggsave(plot = plot.1, filename = "figures/plot2.png", width = 10, height = 7)
 
-plot.1 <- res %>% group_by(year) %>% 
-  ggplot(aes(x = tmin_c, y = yield))+
-  geom_point()
+```
 
-plot.1
+```{r}
 
-ggplot(res, aes(yield, year))+geom_point() + labs(y="Power (W/s)", "Efficiency")
+# another way to get the same results with less processing 
+# new function to output only a value for yield or a vector of values
 
-ggplot(data = res, aes(x = year, y = yield))+geom_point()
+# Find the average minimum temperature for the month of February for each year
+temp <- (clim_data %>% 
+  group_by(month, year) %>%
+  dplyr::summarize(tmin_c = mean(tmin_c)) %>%
+  filter(month == 2))$tmin_c
 
+# Find the total precipitation for the month of January for each year
+precip <- (clim_data %>%
+  group_by(month, year) %>%
+  dplyr::summarize(precip = sum(precip)) %>%
+  filter(month == 1))$precip
+
+# change the function to include separate inputs for temp and percip
+almond_yield.2 = function(temp, precip, t.coeff1 = -0.015, t.coeff2 = -0.0046, p.coeff1 = -0.07, p.coeff2 = 0.0043, intercep = 0.28) {
+  yield = t.coeff1*temp+t.coeff2*temp^2+p.coeff1*precip+p.coeff2*precip^2+intercep
+  # return the yield given the particular values
+  return(yield)
+}
+
+#Create a parameter uncertainty for the t.coeff2 value
+p.coeff2 <- rnorm(n = 500, mean = 0.0043, sd = 0.001)
+summary(p.coeff2)
+
+# run the new function over the uncertainty parameter and the other variables
+yield_data <- sapply(p.coeff2, function(x) {
+  yield = mapply(FUN = almond_yield.2, temp = temp, precip = precip, 
+                 p.coeff2 = x); return(yield)})
+
+# create a date frame that can be used to plot the uncertainty
+colnames(yield_data) = p.coeff2
+rownames(yield_data) = unique(clim_data$year)[2:23]
+yield_data = t(yield_data) 
+yield_data = as.data.frame(yield_data) %>% gather(year, yield)
+
+# create a box plot
+plot.2 <- yield_data %>% 
+  ggplot(aes(x = year, y = yield, group = year)) +
+  geom_boxplot(aes(fill = year)) +
+  theme_classic()+
+  #scale_x_continuous(limits=c(1989, 2010)) +
+  scale_y_continuous(limits=c(-1, 2000)) +
+  labs(x = "Harvest Years",
+       y = "Almond Yield Anomaly (ton/acre)") +
+  theme(text = element_text(family = "serif"),
+        axis.title.x = element_text(size=12, face="bold"),
+        axis.title.y = element_text(size=12, face="bold"),
+        axis.text.x = element_text(size=8),
+        axis.text.y = element_text(size=8),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size=8, face="bold"),
+        legend.position = "none")
+# Save plot
+ggsave(plot = plot.2, filename = "figures/plot3.png", width = 10, height = 7)
+
+```
+
+```{r}
+
+# What do we know for NPV function
+# Almond production cost $3800/acre (assuming per year)
+# Almond profit is $2.50/lb
+# Almond production on average is 1/ton/acre/yr
+# 2000 lb in 1 ton
+# so 2000/lb/acre/yr * $2.50/lb = $5000/acre/yr
+# the almond yield function output is in tons/acre
+
+# create a column for profit
+yield_data$profit = ((1+yield_data$yield) * 5000) - 3800
+
+# write and function of NPV
+NPV_function = function(value, time, discount = 0.12) {
+	npv = value / (1 + discount)^time
+	return(npv)
+}
+
+# create  vector for the number of years we are running the NPV function over
+yrs = seq(from = 1, to = length(unique(clim_data$year))-1)
+
+# create a column for year number
+yield_data$yrs = rep(yrs, times = 500)
+
+# create a column for the NPV value
+yield_data$NPV =  NPV_function(value = yield_data$profit, time = yrs)
+
+# create a box plot
+plot.3 <- yield_data %>% 
+  ggplot(aes(x = year, y = NPV, group = year)) +
+  geom_boxplot(aes(fill = year)) +
+  theme_classic()+
+  scale_y_continuous(limits=c(-1700, 8000000)) +
+  labs(x = "Harvest Years",
+       y = "NPV Yield Anomaly (ton/yr)") +
+  theme(text = element_text(family = "serif"),
+        axis.title.x = element_text(size=12, face="bold"),
+        axis.title.y = element_text(size=12, face="bold"),
+        axis.text.x = element_text(size=8),
+        axis.text.y = element_text(size=8),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size=8, face="bold"),
+        legend.position = "none")
+# Save plot
+ggsave(plot = plot.3, filename = "figures/plot4.png", width = 10, height = 7)
 
 
 ```
+
 
 
 
