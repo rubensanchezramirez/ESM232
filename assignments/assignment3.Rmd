@@ -1,0 +1,77 @@
+---
+title: "ESM 232 Assignment 3"
+author: "Ruben Sanchez Ramirez, Gabe De La Rose, Alex Ehrens"
+date: "April 19, 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+
+# Attach packages
+library(tidyverse)
+library(janitor)
+library(here)
+library(ggplot2)
+library(purrr)
+library(sensitivity)
+library(pse)
+
+```
+
+```{r}
+
+# Read in data 
+clim_data <- read_table2(here::here("assignments","data","clim.txt")) %>% 
+  clean_names()
+
+```
+
+```{r}
+
+# call the function
+source("./R/almond_yield.2.R")
+
+# run the function using the given climate data
+yield_data <- almond_yield.2(clim_data)
+
+```
+
+```{r}
+
+# call the function
+source("./R/almond_yield.R")
+
+# run the function using the given climate data
+yield_data <- almond_yield(clim_data)
+
+
+```
+
+```{r}
+
+t.coeff2 <- rnorm(n = 500, mean = -0.0043, sd = .001)
+
+res = t.coeff2 %>% map_dfr(~almond_yield( climate = clim_data, t.coeff2 = .x) )
+
+plot(res)
+
+plot.1 <- res %>% group_by(year) %>% 
+  ggplot(aes(x = tmin_c, y = yield))+
+  geom_point()
+
+plot.1
+
+ggplot(res, aes(yield, year))+geom_point() + labs(y="Power (W/s)", "Efficiency")
+
+ggplot(data = res, aes(x = year, y = yield))+geom_point()
+
+
+
+```
+
+
+

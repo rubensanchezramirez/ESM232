@@ -1,0 +1,101 @@
+---
+title: "Untitled"
+author: "Ruben Sanchez Ramirez"
+date: "4/19/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+
+# Read in data 
+clim <- read_table2(here::here("assignments","data","clim.txt")) %>% 
+  clean_names()
+```
+
+```{r first assignment}
+###Naomi's almond function
+  #Changes: 
+    #Jan_P month== was 2, changed to 1
+    #Function output statistics instead of yeild; changed to output matrix of yield
+almond = function(clim,Tmincoeff1=-0.015, Tmincoeff2=-0.0046, Pcoeff1=-0.07, Pcoeff2=0.0043, intercep=0.28) {
+# find need climate variables
+tmp = clim %>% group_by(month, year) %>% dplyr::summarize(tmin_c=mean(tmin_c))
+Feb_minT = (tmp %>% subset(month==2))$tmin_c 
+tmp = clim %>% group_by(month, year) %>% dplyr::summarize(precip=sum(precip))
+Jan_P = (tmp %>% subset(month==1))$precip
+#compute yield
+yield =
+  Tmincoeff1*Feb_minT+Tmincoeff2*Feb_minT**2 +
+  Pcoeff1*Jan_P + Pcoeff2*Jan_P**2 + intercep
+return(yield)
+}
+##calculate yield
+ANNyield <- cbind(unique(clim$year), almond(clim))
+colnames(ANNyield) <- c("year", "yield")
+ANNyield <- as.data.frame(ANNyield)
+#plot
+ggplot(ANNyield, aes(year, yield)) + geom_bar(stat="identity")
+```
+
+
+
+```{r second assignment}
+###Had to change function again so that climate is not subset inside almond function
+tmp = clim %>% group_by(month, year) %>% dplyr::summarize(tmin_c=mean(tmin_c))
+Feb_minT = (tmp %>% subset(month==2))$tmin_c 
+tmp = clim %>% group_by(month, year) %>% dplyr::summarize(precip=sum(precip))
+Jan_P = (tmp %>% subset(month==1))$precip
+##Changed almong function to just output vector of yield
+almond = function(T, P,Tmincoeff1=-0.015, Tmincoeff2=-0.0046, Pcoeff1=-0.07, Pcoeff2=0.0043, intercep=0.28) {
+#compute yield
+yield =
+  Tmincoeff1*T+Tmincoeff2*T**2 +
+  Pcoeff1*P + Pcoeff2*P**2 + intercep
+  #compute statistics
+return(yield)
+}
+#Create input for parameter uncertainty
+Pcoeff2_uncert <- rnorm(500,0.0043,0.001)
+summary(Pcoeff2_uncert)
+#Run almond function across all years and all parameter uncertainty
+Psens <- sapply(Pcoeff2_uncert, function(x) {tmp = mapply(FUN=almond, T=Feb_minT, P=Jan_P, Pcoeff2= x); return(tmp)})
+#Set up data frame to be plotted
+colnames(Psens) = Pcoeff2_uncert
+rownames(Psens) = unique(clim$year)[2:23]
+unique(clim$year)[2:23]
+Psensg = t(Psens) 
+Psensg = as.data.frame(Psensg) %>% gather(year, yield)
+#plot sensitivity analysis
+ggplot(Psensg, aes(year, yield)) + geom_boxplot()
+ 
+```
+
+
+
+```{r third assignment}
+#Compute_NPV function
+compute_NPV = function(value, time, discount=0.12) {
+	result = value / (1 + discount)**time
+	return(result)
+}
+#Create data frame to run NPV function over
+nruns= length(unique(clim$year))
+Alm_yield <- as.data.frame(matrix(nrow=nruns, ncol=4))
+colnames(Alm_yield) = c("year","Feb_minT", "Jan_P","anom") 
+Alm_yield$year = unique(clim$year) 
+Alm_yield$Feb_minT = Feb_minT
+Alm_yield$Jan_P = Jan_P
+Alm_yield$anom = almond(T = Alm_yield$Feb_minT, P = Alm_yield$Jan_P)
+# Almond cost $3800/acre
+# Almond value is $2.50/lb
+# Almond production is 1/ton/yr/acre
+#function output is in tons/acre
+	#2000lb/acre/yr * $2.50/lb = $5000/acre/yr on average
+#Calculate NPV
+Alm_yield$profit = ((1+Alm_yield$anom) * 5000) - 3800
+yrs = seq(from=1, to=nruns)
+Alm_yield$NPV =  compute_NPV(Alm_yield$profit, time=yrs)
+#Sum NPV
+sum(Alm_yield$NPV)

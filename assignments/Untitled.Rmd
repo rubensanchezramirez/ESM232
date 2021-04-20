@@ -1,0 +1,153 @@
+---
+title: "Untitled"
+author: "Ruben Sanchez Ramirez"
+date: "4/7/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(janitor)
+```
+
+```{r}
+
+df <- read_table2("data/clim.txt") %>% 
+  clean_names()
+
+```
+
+```{r}
+
+almond_yield = function(climate, t.coeff1 = -0.015, t.coeff2 = -0.0046, p.coeff1 = -0.07, p.coeff2 = 0.0043, intercep = 0.28) {
+  
+  # find need climate variables
+  
+  temp = climate %>% group_by(month, year) %>% 
+    summarize(tmin_c = mean(tmin_c))
+  t.n.2 = (temp %>% filter(month == 2))$tmin_c 
+  
+  precip = climate %>% group_by(month, year) %>%
+    summarize(precip = sum(precip))
+  p.1 = (precip %>% filter(month == 2))$precip
+  
+  
+  #compute yield
+  result = t.coeff1*t.n.2+t.coeff2*t.n.2^2+p.coeff1*p.1+p.coeff2*p.1^2+intercep
+  return(result)
+  
+}  
+
+```
+
+
+```{r}
+t.coeff1 = -0.015
+t.coeff2 = -0.0046
+p.coeff1 = -0.07
+p.coeff2 = 0.0043
+intercep = 0.28
+
+temp <- data %>% 
+  group_by(month, year) %>% 
+  summarize(tmin_c = mean(tmin_c)) %>% 
+  filter(month == 2)
+
+precip <- data %>% 
+  group_by(month, year) %>% 
+  summarize(precip = sum(precip)) %>% 
+  filter(month == 1)
+
+climate <- merge(temp, precip, by = "year")
+
+t.n.2 <- temp$tmin_c
+
+p.1 <- precip$precip
+
+climate$yield <- t.coeff1*t.n.2+t.coeff2*t.n.2^2+p.coeff1*p.1+p.coeff2*p.1^2+intercep
+
+almond_yield <- function(temp, precip){
+  result = (-0.015 * temp) - (0.0046 * (temp^2)) - (0.07 * precip) + (0.0043 * (precip^2)) + 0.28
+  return(result)
+}
+
+climate$yield <- almond_yield(temp = climate$t.n.2, precip = climate$p.1)
+
+```
+
+```{r}
+
+almond_yield = function(climate, t.coeff1 = -0.015, t.coeff2 = -0.0046, p.coeff1 = -0.07, p.coeff2 = 0.0043, intercep = 0.28){
+  
+  temp <- climate %>% 
+  group_by(month, year) %>% 
+  summarize(tmin_c = mean(tmin_c)) %>% 
+  filter(month == 2)
+
+precip <- climate %>% 
+  group_by(month, year) %>% 
+  summarize(precip = sum(precip)) %>% 
+  filter(month == 1)
+
+data <- merge(temp, precip, by = "year") %>% 
+  select(year, tmin_c, precip)
+
+t.n.2 <- temp$tmin_c
+
+p.1 <- precip$precip
+
+data$yield <- t.coeff1*t.n.2+t.coeff2*t.n.2^2+p.coeff1*p.1+p.coeff2*p.1^2+intercep
+
+return(data)
+  
+}
+
+```
+
+
+```{r}
+almond_yield(df)
+```
+
+
+```{r}
+
+## Loebel et al. function
+almond_yield <- function(climate_df){
+  
+  # Create vector of minimum temperature in Feb for all years
+  temp_min <- climate_df %>% 
+    group_by(year) %>% 
+    filter(month == 2) %>% 
+    summarize(tmin_c = mean(tmin_c))
+  
+  # Create vector of precipitation in Jan for all years
+  precip <-  climate_df %>% 
+    group_by(year) %>% 
+    filter(month == 1) %>% 
+    summarize(precip = mean(precip))
+  
+  # bind them together
+  full_df <- full_join(temp_min, precip, by = "year")
+  
+  # apply the yeild function from Lobell et al.
+  yeild <- function(temp_min, precip){
+        result = (-0.015 * temp_min) - (0.0046 * temp_min^2) - (0.07 * precip) + (0.0043 * precip^2) + 0.28
+        return(result)
+  }
+  
+  # Run it over the vector
+  annual_almond_yeild <- mapply(yeild, temp_min = full_df$tmin_c, precip = full_df$precip)
+  
+  # Return a neat data frame
+  final_df <- cbind(full_df, annual_yeilds)
+  return(almond_yeild = final_df)
+}
+almond_yield(clim)
+
+```
+

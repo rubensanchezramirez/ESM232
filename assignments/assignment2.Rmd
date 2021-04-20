@@ -1,0 +1,107 @@
+---
+title: "ESM 232 Assignment 2"
+author: "Ruben Sanchez Ramirez, Gabe De La Rose, Alex Ehrens"
+date: "April 9, 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+
+# Attach packages
+library(tidyverse)
+library(janitor)
+library(here)
+library(ggplot2)
+library(kableExtra)
+library(formattable)
+library(here)
+library(tinytex)
+
+```
+
+```{r, eval = FALSE}
+
+# Read in data 
+clim_data <- read_table2(here::here("assignments","data","clim.txt")) %>% 
+  clean_names()
+
+```
+
+```{r, eval = FALSE}
+
+# call the function
+source("./R/almond_yield.R")
+
+# run the function using the given climate data
+yield_data <- almond_yield(clim_data)
+
+```
+
+```{r, eval = FALSE}
+
+# Make a table of the variables and calculated yield
+table.1 <- yield_data %>% 
+  # Add gradient color scale to columns 
+  mutate(tmin_c = color_tile("white", "orange")(tmin_c),
+         precip = color_tile("white", "orange")(precip),
+         yield = color_tile("#DeF7E9", "#71CA97")(yield)) %>% 
+  # Rename columns
+  rename("Year" = year,
+         "Febuary Mean Min Temp(C)" = tmin_c,
+         "January Total Precipitation(mm)" = precip,
+         "Almond Yield Anomaly (ton/acre)" = yield) %>% 
+  kable(escape = FALSE, align = c("c","c","c","c")) %>% 
+  kable_styling() %>% 
+  column_spec(1:4, color = "black") %>% 
+  # Save table
+  save_kable(file = "figures/table.png")
+
+```
+
+
+```{r, eval = FALSE}
+
+# Make a plot representing trends
+plot.1 <- yield_data %>% 
+  ggplot(aes(x = year, y = yield)) +
+  geom_line(color = "gray") +
+  geom_point(alpha = 0.9,
+             shape = 21,
+             color = "black",
+             aes(size = precip, fill = tmin_c)) +
+  scale_size(range = c(5, 20), name = "January Total Precipitation(mm)") +
+  scale_fill_gradient(low = "goldenrod1", high = "firebrick",
+                      name = "Febuary Mean Min Temp(C)") +
+  theme_classic()+
+  scale_x_continuous(limits=c(1989, 2010)) +
+  scale_y_continuous(limits=c(-1, 2000)) +
+  labs(x = "Harvest Years",
+       y = "Almond Yield Anomaly (ton/acre)") +
+  theme(text = element_text(family = "serif"),
+        axis.title.x = element_text(size=12, face="bold"),
+        axis.title.y = element_text(size=12, face="bold"),
+        axis.text.x = element_text(size=8),
+        axis.text.y = element_text(size=8),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size=8, face="bold"),
+        legend.position = "bottom",
+        legend.justification = "left",
+        legend.box = "vertical", 
+        legend.box.just = "left")
+# Save plot
+ggsave(plot = plot.1, filename = "figures/plot1.png")
+
+```
+
+
+![Fig. 1. Predicted almond yeild anomaly for each harvest year. Each year's mean temperature in February is the color of each circle, and the cumulative precipitation in January is represented by the size of each circle. Predicted almond yeilds are calculated based on temperature and precipitation according to Lobell et al., 2006.](figures/plot1.png)
+
+![Table 1. Yearly predicted almond yeild anomalies calculated from Lobell et al., 2006, plus the two predictor variables for each year, February minimum temperature averages and January total precipitation. Darker colors indicate higher values (higher average minimum temperatures; higher total precipitation; higher almond yeild anomalies)](figures/table.png)
+
+### Summary of Findings:
+
+Changes in temperature and precipitation caused by climate change have the potential to negatively impact agricultural yields of perennial crops like almonds. To understand the impact of these climate factors on almond yields, Lobell et al. (2006) developed statistical models that calculate almond yield anomaly as a function of mean February minimum temperature (in ºC) and total January precipitation (in mm). Using that equation in a function in R, the almond yield anomaly was calculated for sample climate data from 1988 to 2010. The results are shown in the table and figure above. Almond yield anomaly tends to be the largest in years where the total January precipitation is highest. Each of the peaks in almond yield anomaly occur when January precipitation is at least 200mm, and the greatest yield anomaly (1919.98 tons/acre) occurs in 1995, the year with the greatest precipitation (676.51 mm). Mean February minimum temperature also impacts almond yield anomaly, but not as much as precipitation does. Generally, lower temperatures result in smaller almond yield anomalies, as nearly all the 7-8 ºC temperatures result in anomalies around 0 tons/acre. Higher mean February minimum temperatures may result in greater almond yield anomalies, but 1996 shows that high temperatures may result in low yields if there is little precipitation. These results will be important in predicting how climate change may affect future almond yields in California.
