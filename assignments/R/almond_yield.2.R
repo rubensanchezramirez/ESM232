@@ -17,12 +17,12 @@ almond_yield.2 = function(climate, t.coeff1 = -0.015, t.coeff2 = -0.0046, p.coef
   # Find the average minimum temptarure for the month of Febuary for each year
   temp <- climate %>%
     group_by(month, year) %>%
-    summarize(tmin_c = mean(tmin_c)) %>%
+    dplyr::summarize(tmin_c = mean(tmin_c)) %>%
     filter(month == 2)
   # Find the total precipitation for the month of January for each year
   precip <- climate %>%
     group_by(month, year) %>%
-    summarize(precip = sum(precip)) %>%
+    dplyr::summarize(precip = sum(precip)) %>%
     filter(month == 1)
   # Create a data frame containing the two previously filtered varables and year
   data <- merge(temp, precip, by = "year") %>%
@@ -34,8 +34,12 @@ almond_yield.2 = function(climate, t.coeff1 = -0.015, t.coeff2 = -0.0046, p.coef
   # Create a new column in the same data frame containing the calculated yeild
   # Based on the given coefficients and the created vectors for min temp and precip
   data$yield <- t.coeff1*t.n.2+t.coeff2*t.n.2^2+p.coeff1*p.1+p.coeff2*p.1^2+intercep
+  # Determine the mean for all the years of data
+  mean_yield <-  mean(data$yield)
+  # Determine the standard deviation for the mean
+  sd_mean <-  sd(mean_yield)
   # Return a list containing:
   # max yield, min yield and mean yield for the years contained in the given data frame
-  return(list(max_yield = max(data$yield), min_yield = min(data$yield), mean_yield = mean(data$yield)))
+  return(list(mean_yield = mean(data$yield), sd = sd(data$yield)))
 
 }

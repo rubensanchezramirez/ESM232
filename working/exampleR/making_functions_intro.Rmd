@@ -1,0 +1,93 @@
+---
+title: "using_functions"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+
+```
+
+## Organizing your work
+
+* Store function definition in **R** subdirectory
+* Store  Rmarkdown in different subdirectory (**Rmarkdown**)
+* Set the scripts (**Rmarkdown**) as working directory
+* Use **source** to read the functions into your working directory
+
+```{r getfunctions}
+# you may need to change the name here if you save power_gen.R in a different place
+source("../R/power_gen.R")
+power_gen
+```
+
+```{r applyfunctions}
+
+# parameters are ordered
+power_gen(20,1)
+# uses 20 for height and 1 for flow
+power_gen(height=20, flow=1)
+
+# defaults are used, unless specified
+# consider a less efficient turbine
+power_gen(20,1, Keff=0.5)
+
+#how would you calculate power generation on Mars where
+# gravity is 10 time lighter
+
+# how about a high efficieny turbine with denser water (0.9 for efficiency; denser water 1200)
+
+
+# you can store the results of a function in a variable
+result_low = power_gen(20,1,Keff=0.2)
+result_high = power_gen(20,1,Keff=0.8)
+
+# now compute the difference in power between a high and low efficient turbine
+result_high-result_low
+```
+## Warning (a good to know piece of info)
+
+Note that by *sourcing* a function - it will essentially overwrite anything else in your workspace with the same name 
+
+*Warning* - if you name your function, the same as an internal R function, your new function will take precidence, and **hide** the internal R function
+
+In R, functions are organized in **Packages**
+You've probably loaded different packages, that provide different functions
+There are a number of packages **base**, **stats** that are automatically loaded
+You can usually find the package associated with any function from online help
+
+* consider **runif** function in the **stats** package
+
+[runif help][https://stat.ethz.ch/R-manual/R-patched/library/stats/html/Uniform.html]
+
+To use a function associated with a particular package
+
+**package::function**
+
+This is helpful if you end up using functions with the same name as functions in other packages
+
+```{r  functionnaming}
+
+# consider runif an internal R function that returns 'n' random numbers between a minimum and maximum value
+runif(min=0, max=10, n=3)
+
+#what if I create my own function called runif
+
+runif = function(x,y) {
+  result=x**y
+  return(result)
+}
+#runif(min=0, max=10, n=3)
+
+runif(x=2,y=3)
+
+stats::runif(min=0,max=10, n=3)
+
+# if your remove your runif it will default back to core package 
+rm(runif)
+#runif(x=2,y=3)
+runif(min=0,max=10, n=3)
+```
+
+
+
