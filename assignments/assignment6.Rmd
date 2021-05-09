@@ -1,0 +1,145 @@
+---
+title: "Assignemnt 6"
+author: "Ruben Sanchez Ramirez, Madeline Oliver, Atefeh Mohseni"
+date: "May 9, 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+```
+
+```{r}
+
+# Attach packages:
+library(tidyverse)
+library(deSolve)
+library(sensitivity)
+library(ggplot2)
+
+```
+
+```{r}
+
+# call the function
+source("./R/forest_growth.R")
+
+```
+
+```{r}
+
+# set parameters
+years = seq(from=1, to=300, by=1)
+initial_C = 10
+thresh = 50
+K = 250
+r = 0.01
+g = 2
+
+# create parameter list
+parms = list(thresh = thresh, K=K, r=r, g=g)
+
+# run ODE solver for the equation using the given parameters
+result = ode(y=initial_C, time=years, func=forest_growth, parms=parms)
+
+# change the column names
+colnames(result)=c("year","C")
+# view the results
+head(result)
+# turn it into a data frame
+result = as.data.frame(result)
+
+```
+
+```{r}
+
+# Plot the results:
+plot.a6.1 <- result %>% 
+  ggplot(aes(year, C))+
+  geom_point()+
+  theme_classic()+
+  labs(x = "Years",
+       y = "Forest Size in Units of Carbon (C)") +
+  theme(text = element_text(family = "serif"),
+        axis.title.x = element_text(size=12, face="bold"),
+        axis.title.y = element_text(size=12, face="bold"),
+        axis.text.x = element_text(size=8),
+        axis.text.y = element_text(size=8))
+
+# call the plot
+plot.a6.1
+
+```
+
+```{r}
+
+# Run a sobol sensitivity analysis that explores how the estimated maximum and mean forest size varies with r, g, and K:
+
+# lets start with sobel 
+# want to learn about sensitivity to growth rate (r), post-canopy growth rate (g), and carrying capacity (K):
+# set the number of parameters
+np=100
+r = rnorm(mean=0.01, sd=0.1, n=np)
+g = rnorm(mean=2, sd=0.1, n=np)
+thresh = rnorm(mean=50, sd=0.1, n=np)
+K = rnorm(mean=250, sd=0.1, n=np)
+X1 = cbind.data.frame(r=r, g=g, thresh=thresh, K=K)
+
+# repeat to get our second set of samples
+r = rnorm(mean=0.01, sd=0.1, n=np)
+g = rnorm(mean=2, sd=0.1, n=np)
+thresh = rnorm(mean=50, sd=0.1, n=np)
+K = rnorm(mean=250, sd=0.1, n=np)
+X2 = cbind.data.frame(r=r, g=g, thresh=thresh, K=K)
+
+# create our sobel object and get sets of parameters for running the model
+sens_P = soboljansen(model = NULL,X1, X2, nboot = 300)
+
+# our parameter sets are
+head(sens_P$X)
+
+# gets results for 300 years
+simtimes = seq(from=1, to=300)
+
+```
+
+```{r}
+
+# turn computing our metrics into a function
+compute_metrics = function(result) {
+  max_C = max(result$C)
+  mean_C = mean(result$C)
+return(list(max_C=max_C, mean_C=mean_C))}
+
+# try it on our first parameter set
+compute_metrics(result)
+
+# define a wrapper function to do everything we need - run solver and compute metrics - and send back results for each parameter
+p_wrapper = function(r,g, thresh, K, initial_C, years, func) {
+    parms = list(r=r, g=g, thresh=thresh, K=K)
+    result = ode(y=initial_C, times=years, func=forest_growth, parms=parms) 
+    colnames(result)=c("year","C")
+  # get metrics
+  metrics=compute_metrics(as.data.frame(result))
+  return(metrics)
+}
+
+# now use pmap as we did before
+
+allresults = sens_P$X %>% pmap(p_wrapper, initial_C=initial_C, years=years, func=forest_growth)
+
+# extract out results from pmap into a data frame
+allres = allresults %>% map_dfr(`[`,c("maxpop","maxyear"))
+
+
+# create boxplots
+tmp = allres %>% gather(key="metric", value="value")
+ggplot(tmp, aes(metric, value, col=metric))+geom_boxplot()
+
+```
+
+```{r}
+sens_P$X
+```
+

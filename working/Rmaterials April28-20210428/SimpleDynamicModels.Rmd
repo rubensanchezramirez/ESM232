@@ -1,0 +1,228 @@
+---
+title: "SimpleDynamicModels"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(purrr)
+```
+
+Dynammic models always involves derivatives (equations that express how things change from time step to time step or place to place )
+
+# Derivates 
+
+Implement population growth as a derivative - a model of population change
+
+```{r derivaties, echo=FALSE}
+
+# note that we include time here but we don't use it; we will need this later
+source("./dexppop.R")
+
+# see how it works
+dexppop(P=20, r=0.01)
+
+
+#what is this?
+
+# notices this is the same as
+dexppop(t=100,P=20, r=0.01)
+
+# lets look at this for a range of initial populations
+pops = seq(from=1, to=100)
+tmp = pops %>% map(~dexppop( time=0,r=0.01, P=.x))
+pchange = unlist(tmp)
+
+
+pdyn = data.frame(pops, pchange)
+ggplot(pdyn, aes(pops, pchange))+geom_point(col="green", size=1.5)
+
+
+# why is this a straight line?
+# how many new individuals are born at each population level
+
+# try this - add a carrying capacity (dP/dt = 0 if P > carryingcapacity)
+```
+
+```{r}
+dexppop_play.2 = function(time, P, r, K) {
+  
+  # compute rate of change of population
+  dexpop = r*P
+  
+  # set rate of change to 0 if P is greater than carrying capacity
+  dexpop = ifelse(P > K, 0, dexpop)
+  return(list(dexpop))
+}
+
+pops = seq(from=1, to=100)
+tmp = pops %>% map(~dexppop_play.2( time=0,r=0.01,K=75, P=.x))
+pchange = unlist(tmp)
+
+
+pdyn = data.frame(pops, pchange)
+ggplot(pdyn, aes(pops, pchange))+geom_point(col="green", size=1.5)
+
+
+```
+
+
+# Integration
+
+What if we wanted to look at how population grows over time - population in 20 years given an initial condition
+
+
+
+Some code to look at simple population growth models as
+dynamic models where
+* explicit solution to differential equation is known; e.g. you can integrate both sides of the equation! Not always possible but lets look at a case where it is possible
+* must be solved by iteration; this is what we do when we can't integrate both sides 
+
+# Explicit Solution is available
+
+```{r explicit}
+source("./exppop.R")
+
+# gives population after any time given an initial population
+
+# 20 rabbits, growth rate of 0.01 how many in 30 years
+exppop(T=30, P0=20, r=0.01, K=1000)
+
+# if we want to see how populatin evolves over time - generate a time series 
+
+initialrabbits = 20
+years = seq(from=1, to=100, by=2)
+Ptime = years %>% map_dbl(~exppop( P0=initialrabbits, r=0.01, K=1000, T=.x))
+
+# keep track of what times we ran
+Ptime = data.frame(P=Ptime, years=years)
+
+ggplot(Ptime, aes(years,P))+geom_point()+labs(x="years",y="Rabbit Population")
+
+# try generating results for maximum and minimum possible r values to compare (guess at what you think)
+max_r = 0.1
+min_r = 0.01
+K = 1000
+
+tmp = years  %>% map_dbl(~exppop(r=max_r, P0=initialrabbits, K=K, T=.x))
+Ptime$Pmaxr = tmp
+tmp = years %>% map_dbl(~exppop(r=min_r, P0=initialrabbits, K=K, T=.x))
+Ptime$Pminr = tmp
+
+head(Ptime)
+Ptimep = Ptime %>% gather(key="r",value="P",-years)
+ggplot(Ptimep, aes(years,P, col=r))+geom_point()+labs(x="years",y="Rabbit Population")
+
+# notice how populatin becomes unstable for high growth rates! 
+
+
+```
+
+Using a solver....when you can't do the integration by hand :)
+
+For example, if you added a carrying capacity!
+
+We can still do the integration by iteration - approximates it
+Implement the differential equation as a function that
+
+*returns the derivative (as a list)
+*inputs time, the variable(s) and a parameter list
+
+(it needs time even though you don’t use it)
+
+I name them starting with *d* to remind myself that they
+are computing a derivative
+
+
+R has a solver called *ODE* for solving ordinary differential equations
+from package **desolve**
+
+*ODE* requires
+
+* initial conditions
+* values of independent where we want values of dependent variable (e.g times where we want population)
+* the derivative as a function
+* a list that contains alll  parameter values (or if you have only one parameter then you can use a single value)
+
+```{r usingode}
+
+
+source("./dexppop.R")
+library(deSolve)
+initialrabbits = 20
+years = seq(from=1, to=100, by=2)
+
+# run the solver
+Ptime = ode(y=initialrabbits, times=years, func=dexppop,parms=c(0.01))
+head(Ptime)
+colnames(Ptime)=c("year","P")
+
+# notice that there are additional pieces of information year, including the method used for integration
+attributes(Ptime)
+
+# this also means you need to extract just the data frame for plotting
+ggplot(as.data.frame(Ptime), aes(year,P))+geom_point()+labs(y="Population", "years")
+
+# this also works (of course function can be by order)
+Ptime=ode(initialrabbits, years, dexppop,0.03)
+colnames(Ptime)=c("year","P")
+ggplot(as.data.frame(Ptime), aes(year,P))+geom_point()+labs(y="Population", "years")
+
+# how would we add carrying capacity here
+
+```
+
+
+You can play a bit with changing your function to something that you can't integrate "by hand"
+
+BUT we might want more parameters
+
+to work with ODE,
+parmeters must all be input as a single list; simlar to how we return multiple outputs from a function
+
+see example below..lets add a carrying capacity
+
+
+```{r}
+
+
+
+source("./dexppop_play.R")
+
+# create parameter list
+initalrabbits=2
+newparms = list(r=0.03, carry_capacity=300)
+
+#apply solver
+results=ode(initialrabbits, years, dexppop_play,newparms)
+head(results)
+
+# add more meaningful names
+colnames(results)=c("year","P")
+
+# plot
+ggplot(as.data.frame(results), aes(year,P))+geom_point()+labs(y="Population", "years")
+
+
+# try again with different parameters
+alternativeparms = list(r=0.04, carry_capacity=500)
+results2=ode(initialrabbits, years, dexppop_play,alternativeparms)
+
+
+# look at results
+head(results2)
+colnames(results2)=c("year","P_parm2")
+
+# plot
+ggplot(as.data.frame(results2), aes(year,P_parm2))+geom_point()+labs(y="Population", "years")
+
+# compare by combining into a single data frame
+both = inner_join(as.data.frame(results), as.data.frame(results2))
+
+both_p = both %>% gather(key="model", value="P", -year)
+ggplot(both_p, aes(year,P, col=model))+geom_point()+labs(y="Population", "years")
+
+# try playing on your own - modiffy the function in some way
+```
+

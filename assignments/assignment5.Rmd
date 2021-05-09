@@ -1,0 +1,39 @@
+---
+title: "ESM 232 Assignment 5"
+author: "Ruben Sanchez Ramirez"
+date: "April 26, 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+
+# Attach packages
+library(tidyverse)
+library(janitor)
+library(here)
+library(ggplot2)
+library(purrr)
+library(sensitivity)
+library(pse)
+
+```
+
+Dynamic Models - Assignment 5
+
+In Class, we learned how to use the ODE solver to generate results from a dynamic model (where the value of something is evolving over time and this evolution is described by a differential equation). We started with dP/dT = rP (a simple model of population growth).  We then looked at adding a carrying capacity dP/dT = rP until P is at carrying capacity and then dP/dT = 0.  
+
+Another way to model carrying capacity is to assume that dP/dT = r*P*(1-P/K)  where K is carrying capacity.  Implement this differential equation as a function.  Then run the model using the ODE solver, with the following 
+
+r = 0.05
+
+K = 20
+
+initial P is 1
+
+graph results for time from 1 to 50 years.Submit the graph, your Rmarkdown on Gauchospace
+
+If you want to check your work - the population at year 50 should be 7.576973

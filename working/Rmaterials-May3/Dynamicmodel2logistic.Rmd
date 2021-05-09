@@ -1,0 +1,108 @@
+---
+title: "Dynamicmodel2logistic"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(deSolve)
+
+```
+
+## Difference Equations
+
+Population models can be discrete (rather than continuous)
+So we could implement them as difference equations and iterate
+like we did with diffusion
+
+```{r iteratie}
+source("./discrete_logistic_pop.R")
+# notice how a for loop is used to iterate
+
+# how many rabbits after 50 years given a growth of 0.1
+# starting with 1 rabbit - but a carrying capcity of 500
+
+
+
+discrete_logistic_pop(P0=1, r=0.05, K=200, T=50)
+
+# save results
+discrete_result = discrete_logistic_pop(P0=1, r=0.05, K=200, T=50)
+
+# lets also keep the parameters for use later
+P0=1
+r=0.05
+K=200
+T=50
+
+```
+
+## Differential Equation comparison
+
+Remember we have 3 ways now to calculate population
+
+analytical solution - based on integration (exppop.R) BEST
+
+using an ode solver for numerical approximation (exppop_play.R)
+
+numerical integration using in discrete steps (discrete_logistic_pop.R)
+```{r closed}
+
+source("./exppop.R")
+
+exppop(P0=P0, r=r, K=K, T=T)
+analytic_result = exppop(P0=P0, r=r, K=K, T=T)
+
+analytic_result
+discrete_result
+
+# why are they different
+# look at trajectories
+
+growth_result = data.frame(time=seq(from=1,to=100))
+
+growth_result$Panalytic = growth_result$time %>% map_dbl(~exppop( P0=1,r=0.05, K=200,T=.x ))
+
+growth_result$Pdiscrete = growth_result$time %>% map_dbl(~discrete_logistic_pop( P0=1,r=0.05, K=200,T=.x ))
+
+tmp = growth_result %>% gather(key="Ptype",value="P",-time)
+ggplot(tmp, aes(time,P, col=Ptype))+geom_point()
+
+# try running them for longer time periods to see what happens 
+# change the value of r, K , P0 - see how it effects the results
+```
+
+Finally look at continuous derivative using ODE solve
+Needs
+*initial condtions
+*differential equation
+*parameters
+
+```{r}
+
+source("../R/exppop_play.R")
+
+# set up using the same parameters
+pcompare = list(r=r,K=K)
+
+
+# now run our ODE solver
+result = ode(P0, growth_result$time, dexppop_play, pcompare)
+head(result)
+
+# we already have time - so just extract population
+growth_result$Pdifferential = result[,2]
+
+# comapre all 3 approaches
+tmp = growth_result %>% gather(key="Ptype",value="P",-time)
+ggplot(tmp, aes(time,P, col=Ptype))+geom_point()
+
+# notice Pderiv is closer to Pa
+```
+
+All differential and difference equations are approximations
+The analytical solution is exact
+
+Notice that differential equations is a bit more accurate!
+
