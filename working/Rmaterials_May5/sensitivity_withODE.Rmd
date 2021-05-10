@@ -16,7 +16,7 @@ We can apply sensitivity analysis to a differential equation
 
 A key issue where is sensitivity of what?
 
-Dyanmics models often give you many many outputs - time series (streamflow every day for a year, popultation for 30 years) - or output over space (concentration every 10 meters)
+Dynamic models often give you many many outputs - time series (stream flow every day for a year, population for 30 years) - or output over space (concentration every 10 meters)
 
 So if we are asking 'sensitivity of what' we need to summarize results in some way (reduce their dimensionality )
 
@@ -72,7 +72,7 @@ r = rnorm(mean=0.02, sd=0.005, n=np)
 X1 = cbind.data.frame(r=r, K=K)
 
 # repeat to get our second set of samples
-K = rnorm(mean=400, sd=20, n=np)
+K = rnorm(mean=400, sd=10, n=np)
 r = rnorm(mean=0.02, sd=0.005, n=np)
 X2 = cbind.data.frame(r=r, K=K)
 

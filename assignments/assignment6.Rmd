@@ -76,21 +76,25 @@ plot.a6.1
 
 # Run a sobol sensitivity analysis that explores how the estimated maximum and mean forest size varies with r, g, and K:
 
+# come up with first set of sample parameters
+# we will assume that we know the initial forest size in carbon (C)
+initial_C = 10
+
 # lets start with sobel 
 # want to learn about sensitivity to growth rate (r), post-canopy growth rate (g), and carrying capacity (K):
 # set the number of parameters
 np=100
-r = rnorm(mean=0.01, sd=0.1, n=np)
-g = rnorm(mean=2, sd=0.1, n=np)
-thresh = rnorm(mean=50, sd=0.1, n=np)
-K = rnorm(mean=250, sd=0.1, n=np)
+r = rnorm(mean=0.01, sd=0.01*0.1, n=np)
+g = rnorm(mean=2, sd=2*0.1, n=np)
+thresh = rnorm(mean=50, sd=50*0.1, n=np)
+K = rnorm(mean=250, sd=250*0.1, n=np)
 X1 = cbind.data.frame(r=r, g=g, thresh=thresh, K=K)
 
 # repeat to get our second set of samples
-r = rnorm(mean=0.01, sd=0.1, n=np)
-g = rnorm(mean=2, sd=0.1, n=np)
-thresh = rnorm(mean=50, sd=0.1, n=np)
-K = rnorm(mean=250, sd=0.1, n=np)
+r = rnorm(mean=0.01, sd=0.01*0.1, n=np)
+g = rnorm(mean=2, sd=2*0.1, n=np)
+thresh = rnorm(mean=50, sd=50*0.1, n=np)
+K = rnorm(mean=250, sd=250*0.1, n=np)
 X2 = cbind.data.frame(r=r, g=g, thresh=thresh, K=K)
 
 # create our sobel object and get sets of parameters for running the model
@@ -99,8 +103,24 @@ sens_P = soboljansen(model = NULL,X1, X2, nboot = 300)
 # our parameter sets are
 head(sens_P$X)
 
-# gets results for 300 years
+# for illustration lets look at running just one parameter sets and summarizing results
+sens_P$X[1,]
+# recall ODE needs ALL of our parameters in a single list 
+# initial population and timnes for which we want output 
+initial_C
+# gets results for 300 years (evaluating every year)
 simtimes = seq(from=1, to=300)
+parms = list(r=sens_P$X$r[1], thresh=sens_P$X$thresh[1], g=sens_P$X$g[1], K=sens_P$X$K[1])
+result = ode(y=initial_C, times=simtimes, func=forest_growth, parms=parms)
+head(result)
+colnames(result)=c("time","C")
+# turn it into a data frame
+result = as.data.frame(result)
+ggplot(result, aes(time, C))+geom_point()
+# extra our metrics of interest  from this
+# maximum population it gets to
+max_C = max(result$C)
+mean_C = mean(result$C)
 
 ```
 
@@ -116,22 +136,20 @@ return(list(max_C=max_C, mean_C=mean_C))}
 compute_metrics(result)
 
 # define a wrapper function to do everything we need - run solver and compute metrics - and send back results for each parameter
-p_wrapper = function(r,g, thresh, K, initial_C, years, func) {
+p_wrapper = function(r,g, thresh, K, initial_C, simtimes, func) {
     parms = list(r=r, g=g, thresh=thresh, K=K)
-    result = ode(y=initial_C, times=years, func=forest_growth, parms=parms) 
-    colnames(result)=c("year","C")
+    result = ode(y=initial_C, times=simtimes, func=forest_growth, parms=parms) 
+    colnames(result)=c("time","C")
   # get metrics
   metrics=compute_metrics(as.data.frame(result))
   return(metrics)
 }
 
-# now use pmap as we did before
-
-allresults = sens_P$X %>% pmap(p_wrapper, initial_C=initial_C, years=years, func=forest_growth)
+# now use pmap with the given single row values
+allresults = sens_P$X %>% pmap(p_wrapper, initial_C=initial_C, simtimes=simtimes, func=forest_growth())
 
 # extract out results from pmap into a data frame
-allres = allresults %>% map_dfr(`[`,c("maxpop","maxyear"))
-
+allres = allresults %>% map_dfr(`[`,c("max_C","mean_C"))
 
 # create boxplots
 tmp = allres %>% gather(key="metric", value="value")
@@ -140,6 +158,22 @@ ggplot(tmp, aes(metric, value, col=metric))+geom_boxplot()
 ```
 
 ```{r}
-sens_P$X
+
+# sobol can only handle one output at a time  - do them separately
+sens_P_maxC = sensitivity::tell(sens_P,allres$max_C)
+# first-order (main effect without co-variance)
+sens_P_maxC$S
+# total sensitivity index
+sens_P_maxC$T
+plot(sens_P_maxC)
+# create another one for mean
+sens_P_meanC = sensitivity::tell(sens_P,allres$mean_C)
+# first-order (main effect without co-variance)
+sens_P_meanC$S
+# total sensitivity index
+sens_P_meanC$T
+plot(sens_P_meanC)
+
 ```
+
 
