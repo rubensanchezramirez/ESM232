@@ -28,7 +28,7 @@ r is growth rate
 K is maximum carbon capacity of the forest
 
 ```{r forest}
-source("../R/dpopgrowth.R")
+source("./dpopgrowth.R")
 
 # set parameters
 forestparms = list(K=100,r=0.2)
@@ -60,7 +60,7 @@ harvest the forest
 ```{r harvest}
 
 # fixed amount per year
-source("../R/dharvest.R")
+source("./dharvest.R")
 
 # try it out
 tm = seq(from=1, to=500)
@@ -115,7 +115,7 @@ We will use our compute metrics and wrapper to make this easy
 ```{r harvestsend}
 
 # fixed amount per year
-source("../R/dharvest.R")
+source("./dharvest.R")
 
 
 # lets assume a uniform distribution of harvest rates
